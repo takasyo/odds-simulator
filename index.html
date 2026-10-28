@@ -20,7 +20,7 @@
         <section class="budget-section" aria-labelledby="budget-title">
           <div class="budget-control">
             <label id="budget-title" for="budget">購入予算</label>
-            <div class="budget-input-wrap"><input id="budget" type="text" inputmode="numeric" role="spinbutton" aria-valuemin="1" aria-valuemax="10000" aria-valuenow="100" value="100" autocomplete="off" spellcheck="false" aria-describedby="budget-unit validation" /><span id="budget-unit" class="budget-unit">×100円</span></div>
+            <div class="budget-input-wrap"><input id="budget" type="text" inputmode="numeric" role="spinbutton" aria-valuemin="1" aria-valuemax="10000" aria-valuenow="100" value="100" autocomplete="off" spellcheck="false" aria-describedby="budget-unit validation" /><span id="budget-unit" class="budget-unit">×100円</span><div class="budget-stepper"><button id="budget-up" class="budget-step-button" type="button" aria-label="購入予算を増やす" title="購入予算を増やす"><span data-icon="up"></span></button><button id="budget-down" class="budget-step-button" type="button" aria-label="購入予算を減らす" title="購入予算を減らす"><span data-icon="down"></span></button></div></div>
             <output id="budget-yen" class="budget-equivalent" for="budget" data-summary>10,000 円</output>
           </div>
           <div class="budget-meta"><span class="meta-label">残予算</span><strong id="remaining" data-summary>—</strong><span class="meta-unit">円</span></div>

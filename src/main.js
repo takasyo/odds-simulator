@@ -1,8 +1,8 @@
-import { createElement, ChartNoAxesCombined, Plus, Trash2 } from 'lucide';
+import { createElement, ArrowDown, ArrowUp, ChartNoAxesCombined, Plus, Trash2 } from 'lucide';
 import { AllocationError, calculateAllocation, LIMITS } from './allocation.js';
 import './style.css';
 
-const icons = { chart: ChartNoAxesCombined, plus: Plus, trash: Trash2 };
+const icons = { chart: ChartNoAxesCombined, down: ArrowDown, plus: Plus, trash: Trash2, up: ArrowUp };
 const numberFormat = new Intl.NumberFormat('ja-JP');
 const money = (value) => numberFormat.format(value);
 const signedMoney = (value) => `${value > 0 ? '+' : ''}${money(value)}`;
@@ -11,6 +11,8 @@ const allowZero = document.querySelector('#allow-zero');
 const rowsContainer = document.querySelector('#bet-rows');
 const addButton = document.querySelector('#add-bet');
 const validation = document.querySelector('#validation');
+const budgetUpButton = document.querySelector('#budget-up');
+const budgetDownButton = document.querySelector('#budget-down');
 const STORAGE_KEY = 'odds-sim-state';
 const defaultBets = [
   { name: 'A → B → C', odds: '10' },
@@ -115,8 +117,19 @@ function clearResults() {
   document.querySelector('#live-result').textContent = '';
 }
 
+function stepBudget(direction) {
+  const units = Number(budgetInput.value);
+  if (!/^\d+$/.test(budgetInput.value) || !Number.isSafeInteger(units)) return;
+  budgetInput.value = String(Math.max(1, Math.min(LIMITS.budget / 100, units + direction)));
+  budgetInput.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
 function updateResults() {
   saveState();
+  const budgetUnits = Number(budgetInput.value);
+  const validBudget = /^\d+$/.test(budgetInput.value) && Number.isSafeInteger(budgetUnits);
+  budgetUpButton.disabled = !validBudget || budgetUnits >= LIMITS.budget / 100;
+  budgetDownButton.disabled = !validBudget || budgetUnits <= 1;
   const rows = [...rowsContainer.children];
   const bets = rows.map((row) => ({ name: row.querySelector('.name-input').value, odds: row.querySelector('.odds-input').value }));
   document.querySelectorAll('[aria-invalid]').forEach((input) => input.removeAttribute('aria-invalid'));
@@ -185,13 +198,12 @@ for (const bet of savedState?.bets ?? defaultBets) addRow(bet.name, bet.odds);
 budgetInput.addEventListener('input', updateResults);
 budgetInput.addEventListener('keydown', (event) => {
   if (!['ArrowUp', 'ArrowDown'].includes(event.key) || event.isComposing || event.altKey || event.ctrlKey || event.metaKey) return;
-  const units = Number(budgetInput.value);
-  if (!/^\d+$/.test(budgetInput.value) || !Number.isSafeInteger(units)) return;
+  if (!/^\d+$/.test(budgetInput.value) || !Number.isSafeInteger(Number(budgetInput.value))) return;
   event.preventDefault();
-  const nextUnits = units + (event.key === 'ArrowUp' ? 1 : -1);
-  budgetInput.value = String(Math.max(1, Math.min(LIMITS.budget / 100, nextUnits)));
-  budgetInput.dispatchEvent(new Event('input', { bubbles: true }));
+  stepBudget(event.key === 'ArrowUp' ? 1 : -1);
 });
+budgetUpButton.addEventListener('click', () => stepBudget(1));
+budgetDownButton.addEventListener('click', () => stepBudget(-1));
 for (const eventType of ['click', 'dblclick']) {
   document.addEventListener(eventType, moveNumericCaretToEnd);
 }

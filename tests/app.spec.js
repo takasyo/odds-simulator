@@ -192,11 +192,25 @@ test('numeric inputs move the caret to the end on click and tap, including added
 
 test('budget arrow keys stay inside the 100-yen unit bounds', async ({ page }) => {
   const budget = page.getByRole('spinbutton', { name: '購入予算', exact: true });
+  const increase = page.getByRole('button', { name: '購入予算を増やす' });
+  const decrease = page.getByRole('button', { name: '購入予算を減らす' });
+  await expect(decrease).toBeEnabled();
+  await increase.click();
+  await expect(budget).toHaveValue('101');
+  await expect(page.locator('#budget-yen')).toHaveText('10,100 円');
+  await decrease.click();
+  await expect(budget).toHaveValue('100');
   await budget.fill('10000');
+  await expect(increase).toBeDisabled();
   await budget.press('ArrowUp');
   await expect(budget).toHaveValue('10000');
   await expect(budget).toHaveAttribute('aria-valuenow', '10000');
   await budget.fill('1');
+  await expect(decrease).toBeDisabled();
+  await increase.click();
+  await expect(budget).toHaveValue('2');
+  await decrease.click();
+  await expect(budget).toHaveValue('1');
   await budget.press('ArrowDown');
   await expect(budget).toHaveValue('1');
   await expect(budget).toHaveAttribute('aria-valuenow', '1');

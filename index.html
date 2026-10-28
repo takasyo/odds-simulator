@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#15755c" />
+    <meta name="description" content="予算とオッズから、100円単位の購入額と想定払戻金を計算します。" />
+    <title>オッズ配分 | ODDS / SIM</title>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="app-header">
+        <a class="brand" href="./" aria-label="オッズ配分 ホーム"><span class="brand-icon" data-icon="chart"></span><span>ODDS <span class="brand-divider">/</span> SIM</span></a>
+        <span class="header-caption">オッズ配分シミュレーター</span>
+      </header>
+
+      <main>
+        <div class="page-heading"><div><p class="eyebrow">ALLOCATION</p><h1>オッズ配分</h1></div><span class="unit-label">購入単位 <strong>100</strong> 円</span></div>
+
+        <section class="budget-section" aria-labelledby="budget-title">
+          <div class="budget-control">
+            <label id="budget-title" for="budget">購入予算</label>
+            <div class="budget-input-wrap"><input id="budget" type="text" inputmode="numeric" role="spinbutton" aria-valuemin="1" aria-valuemax="10000" aria-valuenow="100" value="100" autocomplete="off" spellcheck="false" aria-describedby="budget-unit validation" /><span id="budget-unit" class="budget-unit">×100円</span></div>
+            <output id="budget-yen" class="budget-equivalent" for="budget" data-summary>10,000 円</output>
+          </div>
+          <div class="budget-meta"><span class="meta-label">残予算</span><strong id="remaining" data-summary>—</strong><span class="meta-unit">円</span></div>
+          <label class="zero-option"><input id="allow-zero" type="checkbox" checked /><span>0円の買い目を許可</span></label>
+        </section>
+
+        <div class="section-heading"><h2>買い目 <span id="bet-count" class="count">3</span></h2><button id="add-bet" class="add-button" type="button"><span data-icon="plus"></span>買い目を追加</button></div>
+        <div id="validation" class="validation" role="status" aria-live="polite" hidden></div>
+
+        <section class="allocation-table" aria-label="買い目と配分結果">
+          <div class="table-head" aria-hidden="true"><span>買い目</span><span>オッズ</span><span>購入額</span><span>想定払戻金</span><span>収支</span><span></span></div>
+          <div id="bet-rows"></div>
+          <div class="table-total"><span>購入合計</span><div><strong id="total" data-summary>—</strong><span>円</span></div></div>
+        </section>
+
+        <section class="results-section" aria-labelledby="results-title">
+          <div class="section-heading"><h2 id="results-title">配分サマリー</h2><span id="purchased-count" class="subtle">—</span></div>
+          <div class="summary-grid">
+            <div class="summary-item primary"><span class="meta-label">最低払戻金<span class="qualifier">購入する買い目</span></span><div class="summary-value"><strong id="minimum-payout" data-summary>—</strong><span>円</span></div></div>
+            <div class="summary-item"><span class="meta-label">最高払戻金</span><div class="summary-value"><strong id="maximum-payout" data-summary>—</strong><span>円</span></div></div>
+            <div class="summary-item"><span class="meta-label">払戻金の差</span><div class="summary-value"><strong id="spread" data-summary>—</strong><span>円</span></div></div>
+            <div class="summary-item"><span class="meta-label">最低収支<span class="qualifier">購入する買い目</span></span><div class="summary-value"><strong id="minimum-profit" data-summary>—</strong><span>円</span></div></div>
+          </div>
+          <p id="excluded-warning" class="excluded-warning" hidden></p>
+        </section>
+        <p class="disclaimer">払戻金は入力オッズでの概算です。的中・利益を保証するものではありません。</p>
+        <p id="live-result" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
+      </main>
+      <footer><span>ODDS / SIM</span><span>100円単位・比例配分</span></footer>
+    </div>
+
+    <template id="bet-template">
+      <div class="bet-row">
+        <div class="name-cell"><span class="row-number" aria-hidden="true"></span><div class="field"><label class="sr-only name-label"></label><input class="name-input" type="text" maxlength="60" autocomplete="off" /></div></div>
+        <div class="odds-cell"><label class="mobile-label odds-label"></label><div class="odds-wrap"><input class="odds-input" type="text" inputmode="decimal" maxlength="10" autocomplete="off" spellcheck="false" /><span aria-hidden="true">倍</span></div></div>
+        <div class="amount-cell result-cell"><span class="mobile-label">購入額</span><div><strong class="amount">—</strong><span class="currency">円</span></div><span class="excluded-tag" hidden>購入なし</span></div>
+        <div class="payout-cell result-cell"><span class="mobile-label">想定払戻金</span><div><strong class="payout">—</strong><span class="currency">円</span></div><div class="payout-track" aria-hidden="true"><span class="payout-bar"></span></div></div>
+        <div class="profit-cell result-cell"><span class="mobile-label">収支</span><div><span class="profit">—</span><span class="currency">円</span></div></div>
+        <button class="remove-button icon-button" type="button"><span data-icon="trash"></span></button>
+      </div>
+    </template>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

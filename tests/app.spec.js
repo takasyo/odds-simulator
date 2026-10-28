@@ -42,6 +42,23 @@ test('input updates immediately, preserves focus, and clears stale invalid resul
   await expect(page.locator('#validation')).toBeHidden();
 });
 
+test('restores budget, options, and bets after reload', async ({ page }) => {
+  await page.getByRole('spinbutton', { name: '購入予算', exact: true }).fill('123');
+  await page.getByLabel('0円の買い目を許可').uncheck();
+  await page.getByLabel('買い目 1の名前', { exact: true }).fill('保存対象');
+  await page.getByLabel('オッズ 1', { exact: true }).fill('3.25');
+  await page.getByRole('button', { name: '買い目を追加' }).click();
+  await page.getByLabel('買い目 4の名前', { exact: true }).fill('追加分');
+  await page.reload();
+
+  await expect(page.getByRole('spinbutton', { name: '購入予算', exact: true })).toHaveValue('123');
+  await expect(page.getByLabel('0円の買い目を許可')).not.toBeChecked();
+  await expect(page.locator('.bet-row')).toHaveCount(4);
+  await expect(page.getByLabel('買い目 1の名前', { exact: true })).toHaveValue('保存対象');
+  await expect(page.getByLabel('オッズ 1', { exact: true })).toHaveValue('3.25');
+  await expect(page.getByLabel('買い目 4の名前', { exact: true })).toHaveValue('追加分');
+});
+
 test('adds and deletes bets with accessible labels, focus, and safe text handling', async ({ page }) => {
   await page.getByRole('button', { name: '買い目を追加' }).click();
   await expect(page.locator('.bet-row')).toHaveCount(4);

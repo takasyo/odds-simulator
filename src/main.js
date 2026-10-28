@@ -11,7 +11,39 @@ const allowZero = document.querySelector('#allow-zero');
 const rowsContainer = document.querySelector('#bet-rows');
 const addButton = document.querySelector('#add-bet');
 const validation = document.querySelector('#validation');
+const STORAGE_KEY = 'odds-sim-state';
+const defaultBets = [
+  { name: 'A → B → C', odds: '10' },
+  { name: 'A → C → B', odds: '20' },
+  { name: 'B → A → C', odds: '50' },
+];
 let nextId = 0;
+
+function loadSavedState() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (!saved || typeof saved !== 'object' || typeof saved.budget !== 'string' || typeof saved.allowZero !== 'boolean' || !Array.isArray(saved.bets)) return null;
+    if (saved.bets.length < 1 || saved.bets.length > LIMITS.bets || !saved.bets.every((bet) => bet && typeof bet.name === 'string' && typeof bet.odds === 'string')) return null;
+    return saved;
+  } catch {
+    return null;
+  }
+}
+
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      budget: budgetInput.value,
+      allowZero: allowZero.checked,
+      bets: [...rowsContainer.children].map((row) => ({
+        name: row.querySelector('.name-input').value,
+        odds: row.querySelector('.odds-input').value,
+      })),
+    }));
+  } catch {
+    // Storage can be unavailable in private or restricted browsing contexts.
+  }
+}
 
 function moveNumericCaretToEnd(event) {
   const input = event.target;
@@ -84,6 +116,7 @@ function clearResults() {
 }
 
 function updateResults() {
+  saveState();
   const rows = [...rowsContainer.children];
   const bets = rows.map((row) => ({ name: row.querySelector('.name-input').value, odds: row.querySelector('.odds-input').value }));
   document.querySelectorAll('[aria-invalid]').forEach((input) => input.removeAttribute('aria-invalid'));
@@ -143,9 +176,12 @@ function updateResults() {
 }
 
 renderIcons(document);
-addRow('A → B → C', '10');
-addRow('A → C → B', '20');
-addRow('B → A → C', '50');
+const savedState = loadSavedState();
+if (savedState) {
+  budgetInput.value = savedState.budget;
+  allowZero.checked = savedState.allowZero;
+}
+for (const bet of savedState?.bets ?? defaultBets) addRow(bet.name, bet.odds);
 budgetInput.addEventListener('input', updateResults);
 budgetInput.addEventListener('keydown', (event) => {
   if (!['ArrowUp', 'ArrowDown'].includes(event.key) || event.isComposing || event.altKey || event.ctrlKey || event.metaKey) return;

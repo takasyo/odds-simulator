@@ -12,10 +12,10 @@ test('built app works under a repository prefix without console or asset errors'
   });
   await page.reload();
   await expect(page.getByLabel('0円の買い目を許可')).toBeChecked();
-  await expect(page.locator('#total')).toHaveText('9,800');
-  await expect(page.locator('#remaining')).toHaveText('200');
-  await expect(page.locator('.amount')).toHaveText(['5,800', '2,900', '1,100']);
-  await expect(page.locator('.profit')).toHaveText(['+48,200', '+48,200', '+45,200']);
+  await expect(page.locator('#total')).toHaveText('10,000');
+  await expect(page.locator('#remaining')).toHaveText('0');
+  await expect(page.locator('.amount')).toHaveText(['5,800', '3,000', '1,200']);
+  await expect(page.locator('.profit')).toHaveText(['+48,000', '+50,000', '+50,000']);
   await expect(page.locator('#validation')).toBeHidden();
   await expect(page.getByRole('button', { name: /実行|計算/ })).toHaveCount(0);
   expect(errors).toEqual([]);
@@ -24,7 +24,7 @@ test('built app works under a repository prefix without console or asset errors'
 test('input updates immediately, preserves focus, and clears stale invalid results', async ({ page }) => {
   const budget = page.getByRole('spinbutton', { name: '購入予算', exact: true });
   await budget.fill('50');
-  await expect(page.locator('#total')).toHaveText('4,800');
+  await expect(page.locator('#total')).toHaveText('5,000');
   await expect(budget).toBeFocused();
   await budget.fill('');
   await expect(page.locator('#total')).toHaveText('—');
@@ -34,8 +34,8 @@ test('input updates immediately, preserves focus, and clears stale invalid resul
   await page.getByLabel('オッズ 1', { exact: true }).fill('3');
   await page.getByLabel('オッズ 2', { exact: true }).fill('5');
   await page.getByLabel('オッズ 3', { exact: true }).fill('10');
-  await expect(page.locator('.amount')).toHaveText(['5,200', '3,100', '1,500']);
-  await expect(page.locator('#spread')).toHaveText('600');
+  await expect(page.locator('.amount')).toHaveText(['5,200', '3,200', '1,600']);
+  await expect(page.locator('#spread')).toHaveText('400');
   await page.getByLabel('オッズ 1', { exact: true }).fill('2.');
   await expect(page.locator('.amount')).toHaveText(['—', '—', '—']);
   await page.getByLabel('オッズ 1', { exact: true }).fill('2.50');
@@ -83,13 +83,13 @@ test('zero option excludes zero stakes from summary and exposes the losing outco
   await page.getByLabel('オッズ 1', { exact: true }).fill('2');
   await page.getByLabel('オッズ 2', { exact: true }).fill('3');
   await page.getByLabel('オッズ 3', { exact: true }).fill('100');
-  await expect(page.locator('.amount')).toHaveText(['500', '300', '100']);
+  await expect(page.locator('.amount')).toHaveText(['500', '400', '100']);
   await page.getByLabel('0円の買い目を許可').check();
-  await expect(page.locator('.amount')).toHaveText(['500', '300', '0']);
-  await expect(page.locator('#minimum-payout')).toHaveText('900');
+  await expect(page.locator('.amount')).toHaveText(['600', '400', '0']);
+  await expect(page.locator('#minimum-payout')).toHaveText('1,200');
   await expect(page.locator('#purchased-count')).toHaveText('2 / 3 点購入');
   await expect(page.locator('.excluded-tag').last()).toBeVisible();
-  await expect(page.locator('#excluded-warning')).toContainText('払戻金は0円、収支は-800円');
+  await expect(page.locator('#excluded-warning')).toContainText('払戻金は0円、収支は-1,000円');
   await page.getByRole('spinbutton', { name: '購入予算', exact: true }).fill('2');
   await expect(page.locator('#validation')).toContainText('2点未満');
   await expect(page.locator('#minimum-payout')).toHaveText('—');
@@ -155,7 +155,7 @@ test('budget is entered as integer hundreds of yen only', async ({ page }) => {
   await expect(page.locator('#validation')).toBeHidden();
   await budget.press('ArrowDown');
   await expect(page.locator('#budget-yen')).toHaveText('10,000 円');
-  await expect(page.locator('#total')).toHaveText('9,800');
+  await expect(page.locator('#total')).toHaveText('10,000');
 });
 
 test('numeric inputs move the caret to the end on click and tap, including added bets', async ({ page }, testInfo) => {

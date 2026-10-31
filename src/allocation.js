@@ -9,6 +9,183 @@ export class AllocationError extends Error {
   }
 }
 
+function addExtraRange(reachable, minimum, maximum, limitMask) {
+  let additions = 0n;
+  for (let extra = minimum; extra <= maximum; extra += 1) {
+    additions |= reachable << BigInt(extra);
+  }
+  return additions & limitMask;
+}
+
+function getExtraRanges(baseUnits, odds, extraUnits, minimumPayout, spread) {
+  return baseUnits.map((base, index) => {
+    const minimumUnits = Math.max(base, Math.floor((minimumPayout + odds[index] - 1) / odds[index]));
+    const maximumUnits = Math.min(base + extraUnits, Math.floor((minimumPayout + spread) / odds[index]));
+    if (minimumUnits > maximumUnits) return null;
+    return [minimumUnits - base, maximumUnits - base];
+  });
+}
+
+function hasAllocationInRange(baseUnits, odds, extraUnits, minimumPayout, spread, allowZero) {
+  const ranges = getExtraRanges(baseUnits, odds, extraUnits, minimumPayout, spread);
+  if (!allowZero) {
+    let minimumExtra = 0;
+    let maximumExtra = 0;
+    for (const range of ranges) {
+      if (!range) return false;
+      minimumExtra += range[0];
+      maximumExtra += range[1];
+    }
+    return minimumExtra <= extraUnits && extraUnits <= maximumExtra;
+  }
+
+  const limitMask = (1n << BigInt(extraUnits + 1)) - 1n;
+  let reachable = [1n, 0n, 0n];
+  for (let index = 0; index < ranges.length; index += 1) {
+    const next = [0n, 0n, 0n];
+    if (baseUnits[index] === 0) {
+      next[0] |= reachable[0];
+      next[1] |= reachable[1];
+      next[2] |= reachable[2];
+    }
+    const range = ranges[index];
+    if (range) {
+      for (let purchased = 0; purchased <= 2; purchased += 1) {
+        const nextCount = Math.min(2, purchased + 1);
+        next[nextCount] |= addExtraRange(reachable[purchased], range[0], range[1], limitMask);
+      }
+    }
+    reachable = next;
+  }
+  return ((reachable[2] >> BigInt(extraUnits)) & 1n) === 1n;
+}
+
+function findMinimumSpread(baseUnits, odds, extraUnits, allowZero) {
+  const candidates = new Set();
+  for (let index = 0; index < baseUnits.length; index += 1) {
+    const firstUnit = Math.max(1, baseUnits[index]);
+    for (let units = firstUnit; units <= baseUnits[index] + extraUnits; units += 1) {
+      candidates.add(units * odds[index]);
+    }
+  }
+  const minimumPayouts = [...candidates].sort((left, right) => left - right);
+  const activePayouts = baseUnits
+    .map((units, index) => units * odds[index])
+    .filter((_, index) => baseUnits[index] > 0);
+  const minimumBasePayout = Math.min(...activePayouts);
+  const maximumBasePayout = Math.max(...activePayouts);
+  const activeIndex = baseUnits.findIndex((units) => units > 0);
+  const addedPayout = extraUnits * odds[activeIndex];
+  let low = 0;
+  let high = Math.max(maximumBasePayout, maximumBasePayout + addedPayout) - minimumBasePayout;
+
+  const hasSpread = (spread) => minimumPayouts.some((minimumPayout) =>
+    hasAllocationInRange(baseUnits, odds, extraUnits, minimumPayout, spread, allowZero));
+
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (hasSpread(middle)) high = middle;
+    else low = middle + 1;
+  }
+
+  const minimumPayout = minimumPayouts.find((candidate) =>
+    hasAllocationInRange(baseUnits, odds, extraUnits, candidate, low, allowZero));
+  return { spread: low, minimumPayout };
+}
+
+function allocateWithinSpread(baseUnits, odds, extraUnits, minimumPayout, spread, allowZero) {
+  const ranges = getExtraRanges(baseUnits, odds, extraUnits, minimumPayout, spread);
+  if (!allowZero) {
+    const extras = ranges.map((range) => range[0]);
+    let remaining = extraUnits - extras.reduce((sum, value) => sum + value, 0);
+    for (let index = extras.length - 1; index >= 0 && remaining > 0; index -= 1) {
+      const additional = Math.min(remaining, ranges[index][1] - extras[index]);
+      extras[index] += additional;
+      remaining -= additional;
+    }
+    return baseUnits.map((units, index) => units + extras[index]);
+  }
+
+  const limitMask = (1n << BigInt(extraUnits + 1)) - 1n;
+  const suffix = Array(baseUnits.length + 1);
+  suffix[baseUnits.length] = [1n, 0n, 0n];
+  for (let index = baseUnits.length - 1; index >= 0; index -= 1) {
+    const next = [0n, 0n, 0n];
+    if (baseUnits[index] === 0) {
+      next[0] |= suffix[index + 1][0];
+      next[1] |= suffix[index + 1][1];
+      next[2] |= suffix[index + 1][2];
+    }
+    const range = ranges[index];
+    if (range) {
+      for (let purchased = 0; purchased <= 2; purchased += 1) {
+        const nextCount = Math.min(2, purchased + 1);
+        next[nextCount] |= addExtraRange(suffix[index + 1][purchased], range[0], range[1], limitMask);
+      }
+    }
+    suffix[index] = next;
+  }
+
+  const allocation = [...baseUnits];
+  let remaining = extraUnits;
+  let purchasedBefore = 0;
+  const canReach = (states, minimumCount, extra) => {
+    for (let count = minimumCount; count <= 2; count += 1) {
+      if (((states[count] >> BigInt(extra)) & 1n) === 1n) return true;
+    }
+    return false;
+  };
+  for (let index = 0; index < baseUnits.length; index += 1) {
+    const minimumRemainingCount = Math.max(0, 2 - Math.min(2, purchasedBefore));
+    if (baseUnits[index] === 0
+      && canReach(suffix[index + 1], minimumRemainingCount, remaining)) {
+      continue;
+    }
+    const range = ranges[index];
+    const purchasedAfter = Math.min(2, purchasedBefore + 1);
+    const requiredAfter = Math.max(0, 2 - purchasedAfter);
+    let selectedExtra;
+    for (let extra = range[0]; extra <= range[1]; extra += 1) {
+      const remainingAfter = remaining - extra;
+      if (remainingAfter >= 0
+        && canReach(suffix[index + 1], requiredAfter, remainingAfter)) {
+        selectedExtra = extra;
+        break;
+      }
+    }
+    allocation[index] += selectedExtra;
+    remaining -= selectedExtra;
+    purchasedBefore += 1;
+  }
+  return allocation;
+}
+
+function optimizeRemainder(units, odds, budget, allowZero) {
+  const baseUnits = units.map(Number);
+  const numericOdds = odds.map(Number);
+  const remainingUnits = Math.floor(budget / 100) - baseUnits.reduce((sum, value) => sum + value, 0);
+  if (remainingUnits <= 0) return units;
+
+  const basePayouts = baseUnits.map((value, index) => value * numericOdds[index]);
+  const activePayouts = basePayouts.filter((_, index) => baseUnits[index] > 0);
+  const bestBaseSpread = Math.max(...activePayouts) - Math.min(...activePayouts);
+  let bestSpread = bestBaseSpread;
+  let bestExtraUnits = 0;
+  let bestAllocation = baseUnits;
+
+  for (let extraUnits = remainingUnits; extraUnits > 0; extraUnits -= 1) {
+    const optimal = findMinimumSpread(baseUnits, numericOdds, extraUnits, allowZero);
+    if (optimal.spread < bestSpread || (optimal.spread === bestSpread && extraUnits > bestExtraUnits)) {
+      bestSpread = optimal.spread;
+      bestExtraUnits = extraUnits;
+      bestAllocation = allocateWithinSpread(
+        baseUnits, numericOdds, extraUnits, optimal.minimumPayout, optimal.spread, allowZero,
+      );
+    }
+  }
+  return bestAllocation.map(BigInt);
+}
+
 function parseBudget(value) {
   const text = String(value).trim();
   if (!/^\d+$/.test(text) || Number(text) < 100 || Number(text) > LIMITS.budget) {
@@ -62,10 +239,15 @@ export function calculateAllocation(budgetInput, bets, allowZero = false) {
     }
   }
 
-  const totalAmount = Number(units.reduce((sum, value) => sum + value, 0n) * 100n);
+  if (allowZero && units.filter((value) => value > 0n).length < 2) {
+    throw new AllocationError('購入できる買い目が2点未満です。予算を増やすか、0円の許可をオフにしてください。', 'bets');
+  }
+  const optimizedUnits = optimizeRemainder(units, odds, budget, allowZero);
+
+  const totalAmount = Number(optimizedUnits.reduce((sum, value) => sum + value, 0n) * 100n);
   const results = bets.map((bet, index) => {
-    const amount = Number(units[index] * 100n);
-    const estimatedPayout = Number(units[index] * odds[index]);
+    const amount = Number(optimizedUnits[index] * 100n);
+    const estimatedPayout = Number(optimizedUnits[index] * odds[index]);
     return {
       name: String(bet.name ?? '').trim() || `買い目 ${index + 1}`,
       odds: Number(odds[index]) / 100,

@@ -4,34 +4,56 @@ import { calculateAllocation, AllocationError } from './allocation.js';
 
 const bets = (...odds) => odds.map((value) => ({ odds: value }));
 
-test('proportional allocation floors to 100 yen and uses actual purchases for profit', () => {
+test('minimizes payout spread by redistributing remaining 100-yen units', () => {
   for (const allowZero of [false, true]) {
     const result = calculateAllocation(10000, bets(10, 20, 50), allowZero);
-    assert.deepEqual(result.results.map((row) => row.amount), [5800, 2900, 1100]);
-    assert.deepEqual(result.results.map((row) => row.estimatedPayout), [58000, 58000, 55000]);
-    assert.deepEqual(result.results.map((row) => row.estimatedProfit), [48200, 48200, 45200]);
-    assert.equal(result.totalAmount, 9800);
-    assert.equal(result.unallocatedAmount, 200);
-    assert.equal(result.payoutSpread, 3000);
-    assert.equal(result.minimumProfit, 45200);
+    assert.deepEqual(result.results.map((row) => row.amount), [5800, 3000, 1200]);
+    assert.deepEqual(result.results.map((row) => row.estimatedPayout), [58000, 60000, 60000]);
+    assert.deepEqual(result.results.map((row) => row.estimatedProfit), [48000, 50000, 50000]);
+    assert.equal(result.totalAmount, 10000);
+    assert.equal(result.unallocatedAmount, 0);
+    assert.equal(result.payoutSpread, 2000);
+    assert.equal(result.minimumProfit, 48000);
   }
 });
 
-test('does not replace proportional flooring with minimum-spread optimization', () => {
+test('the optimal calculation result', () => {
+  for (const allowZero of [false, true]) {
+    const result = calculateAllocation(10000, bets(12.9, 11.8, 42.2), allowZero);
+    assert.deepEqual(result.results.map((row) => row.amount), [4200, 4500, 1300]);
+    assert.deepEqual(result.results.map((row) => row.estimatedPayout), [54180, 53100, 54860]);
+    assert.deepEqual(result.results.map((row) => row.estimatedProfit), [44180, 43100, 44860]);
+    assert.equal(result.totalAmount, 10000);
+    assert.equal(result.unallocatedAmount, 0);
+    assert.equal(result.payoutSpread, 1760);
+    assert.equal(result.minimumProfit, 43100);
+  }
+});
+
+test('optimizes payout spread for other odds while retaining the floor allocation as a minimum', () => {
   const result = calculateAllocation(10000, bets(3, 5, 10));
-  assert.deepEqual(result.results.map((row) => row.amount), [5200, 3100, 1500]);
-  assert.equal(result.payoutSpread, 600);
+  assert.deepEqual(result.results.map((row) => row.amount), [5200, 3200, 1600]);
+  assert.deepEqual(result.results.map((row) => row.estimatedPayout), [15600, 16000, 16000]);
+  assert.equal(result.payoutSpread, 400);
+});
+
+test('leaves budget unspent when every additional unit worsens payout spread', () => {
+  const result = calculateAllocation(900, bets(2, 2));
+  assert.deepEqual(result.results.map((row) => row.amount), [400, 400]);
+  assert.equal(result.totalAmount, 800);
+  assert.equal(result.unallocatedAmount, 100);
+  assert.equal(result.payoutSpread, 0);
 });
 
 test('zero toggle either excludes or clamps high-odds bets', () => {
   const allowed = calculateAllocation(1000, bets(2, 3, 100), true);
-  assert.deepEqual(allowed.results.map((row) => row.amount), [500, 300, 0]);
+  assert.deepEqual(allowed.results.map((row) => row.amount), [600, 400, 0]);
   assert.equal(allowed.purchasedCount, 2);
-  assert.equal(allowed.minimumPayout, 900);
-  assert.equal(allowed.results[2].estimatedProfit, -800);
+  assert.equal(allowed.minimumPayout, 1200);
+  assert.equal(allowed.results[2].estimatedProfit, -1000);
   assert.equal(allowed.results[2].excluded, true);
   const required = calculateAllocation(1000, bets(2, 3, 100));
-  assert.deepEqual(required.results.map((row) => row.amount), [500, 300, 100]);
+  assert.deepEqual(required.results.map((row) => row.amount), [500, 400, 100]);
 });
 
 test('handles repeated minimum clamping and exact boundaries', () => {

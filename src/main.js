@@ -1,8 +1,8 @@
-import { createElement, ArrowDown, ArrowUp, ChartNoAxesCombined, Plus, Trash2 } from 'lucide';
+import { createElement, ArrowDown, ArrowUp, ChartNoAxesCombined, Moon, Plus, Sun, Trash2 } from 'lucide';
 import { AllocationError, calculateAllocation, LIMITS } from './allocation.js';
 import './style.css';
 
-const icons = { chart: ChartNoAxesCombined, down: ArrowDown, plus: Plus, trash: Trash2, up: ArrowUp };
+const icons = { chart: ChartNoAxesCombined, down: ArrowDown, moon: Moon, plus: Plus, sun: Sun, trash: Trash2, up: ArrowUp };
 const numberFormat = new Intl.NumberFormat('ja-JP');
 const money = (value) => numberFormat.format(value);
 const signedMoney = (value) => `${value > 0 ? '+' : ''}${money(value)}`;
@@ -13,7 +13,10 @@ const addButton = document.querySelector('#add-bet');
 const validation = document.querySelector('#validation');
 const budgetUpButton = document.querySelector('#budget-up');
 const budgetDownButton = document.querySelector('#budget-down');
+const themeToggleButton = document.querySelector('#theme-toggle');
+const themeColorMeta = document.querySelector('meta[name="theme-color"]');
 const STORAGE_KEY = 'odds-sim-state';
+const THEME_STORAGE_KEY = 'odds-sim-theme';
 const defaultBets = [
   { name: 'A → B → C', odds: '10' },
   { name: 'A → C → B', odds: '20' },
@@ -44,6 +47,36 @@ function saveState() {
     }));
   } catch {
     // Storage can be unavailable in private or restricted browsing contexts.
+  }
+}
+
+function loadSavedTheme() {
+  try {
+    const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+    return savedTheme === 'light' || savedTheme === 'dark' ? savedTheme : null;
+  } catch {
+    return null;
+  }
+}
+
+function setTheme(theme, persist = false) {
+  const isDark = theme === 'dark';
+  document.documentElement.dataset.theme = theme;
+  themeToggleButton.setAttribute('aria-pressed', String(isDark));
+  themeToggleButton.title = isDark ? 'ライトモードに切り替え' : 'ダークモードに切り替え';
+  themeToggleButton.replaceChildren(createElement(icons[isDark ? 'sun' : 'moon'], {
+    width: 20,
+    height: 20,
+    'aria-hidden': 'true',
+    'stroke-width': 1.8,
+  }));
+  themeColorMeta.content = isDark ? '#151b18' : '#15755c';
+
+  if (!persist) return;
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch {
+    // The selected theme remains active until the page is closed.
   }
 }
 
@@ -124,6 +157,54 @@ function stepBudget(direction) {
   budgetInput.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
+function bindBudgetStepper(button, direction) {
+  let holdTimeout;
+  let holdInterval;
+  let activePointerId = null;
+  let holdTriggered = false;
+
+  const stopRepeating = () => {
+    window.clearTimeout(holdTimeout);
+    window.clearInterval(holdInterval);
+    activePointerId = null;
+  };
+
+  button.addEventListener('pointerdown', (event) => {
+    if (!event.isPrimary || event.button !== 0 || button.disabled) return;
+    stopRepeating();
+    activePointerId = event.pointerId;
+    holdTriggered = false;
+    holdTimeout = window.setTimeout(() => {
+      holdTriggered = true;
+      stepBudget(direction);
+      if (button.disabled) return;
+      holdInterval = window.setInterval(() => {
+        stepBudget(direction);
+        if (button.disabled) stopRepeating();
+      }, 100);
+    }, 400);
+  });
+  window.addEventListener('pointerup', (event) => {
+    if (event.pointerId === activePointerId) stopRepeating();
+  });
+  window.addEventListener('pointercancel', (event) => {
+    if (event.pointerId !== activePointerId) return;
+    stopRepeating();
+    holdTriggered = false;
+  });
+  window.addEventListener('blur', () => {
+    stopRepeating();
+    holdTriggered = false;
+  });
+  button.addEventListener('click', (event) => {
+    if (event.detail > 0 && holdTriggered) {
+      holdTriggered = false;
+      return;
+    }
+    stepBudget(direction);
+  });
+}
+
 function updateResults() {
   saveState();
   const budgetUnits = Number(budgetInput.value);
@@ -189,6 +270,16 @@ function updateResults() {
 }
 
 renderIcons(document);
+const systemTheme = window.matchMedia('(prefers-color-scheme: dark)');
+let savedTheme = loadSavedTheme();
+setTheme(savedTheme ?? (systemTheme.matches ? 'dark' : 'light'));
+themeToggleButton.addEventListener('click', () => {
+  savedTheme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  setTheme(savedTheme, true);
+});
+systemTheme.addEventListener('change', (event) => {
+  if (savedTheme === null) setTheme(event.matches ? 'dark' : 'light');
+});
 const savedState = loadSavedState();
 if (savedState) {
   budgetInput.value = savedState.budget;
@@ -202,8 +293,8 @@ budgetInput.addEventListener('keydown', (event) => {
   event.preventDefault();
   stepBudget(event.key === 'ArrowUp' ? 1 : -1);
 });
-budgetUpButton.addEventListener('click', () => stepBudget(1));
-budgetDownButton.addEventListener('click', () => stepBudget(-1));
+bindBudgetStepper(budgetUpButton, 1);
+bindBudgetStepper(budgetDownButton, -1);
 for (const eventType of ['click', 'dblclick']) {
   document.addEventListener(eventType, moveNumericCaretToEnd);
 }

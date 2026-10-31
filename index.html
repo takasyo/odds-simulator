@@ -5,6 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#15755c" />
     <meta name="description" content="予算とオッズから、100円単位の購入額と想定払戻金を計算します。" />
+    <script>
+      (() => {
+        let savedTheme;
+        try {
+          savedTheme = localStorage.getItem('odds-sim-theme');
+        } catch {
+          // Fall back to the system preference when storage is unavailable.
+        }
+        const theme = savedTheme === 'light' || savedTheme === 'dark'
+          ? savedTheme
+          : window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        document.documentElement.dataset.theme = theme;
+        document.querySelector('meta[name="theme-color"]').content = theme === 'dark' ? '#151b18' : '#15755c';
+      })();
+    </script>
     <title>オッズ配分 | ODDS / SIM</title>
   </head>
   <body>
@@ -12,6 +27,7 @@
       <header class="app-header">
         <a class="brand" href="./" aria-label="オッズ配分 ホーム"><span class="brand-icon" data-icon="chart"></span><span>ODDS <span class="brand-divider">/</span> SIM</span></a>
         <span class="header-caption">オッズ配分シミュレーター</span>
+        <button id="theme-toggle" class="theme-toggle icon-button" type="button" aria-label="ダークモード" aria-pressed="false" title="ダークモードに切り替え"><span data-icon="moon"></span></button>
       </header>
 
       <main>

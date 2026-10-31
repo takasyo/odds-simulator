@@ -59,6 +59,33 @@ test('restores budget, options, and bets after reload', async ({ page }) => {
   await expect(page.getByLabel('買い目 4の名前', { exact: true })).toHaveValue('追加分');
 });
 
+test('follows system theme and persists manual theme changes', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await expect(page.getByRole('button', { name: 'ダークモード' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('body')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(page.locator('html')).toHaveCSS('background-color', 'rgb(21, 27, 24)');
+  await expect(page.locator('.bet-row').first()).toHaveCSS('background-color', 'rgb(29, 38, 33)');
+  await expect(page.locator('.name-input').first()).toHaveCSS('background-color', 'rgb(36, 47, 41)');
+
+  await page.emulateMedia({ colorScheme: 'light' });
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+
+  await page.getByRole('button', { name: 'ダークモード' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await expect(page.getByRole('button', { name: 'ダークモード' })).toHaveAttribute('aria-pressed', 'false');
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+
+  await page.getByRole('button', { name: 'ダークモード' }).click();
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await expect(page.locator('html')).toHaveCSS('background-color', 'rgb(21, 27, 24)');
+});
+
 test('adds and deletes bets with accessible labels, focus, and safe text handling', async ({ page }) => {
   await page.getByRole('button', { name: '買い目を追加' }).click();
   await expect(page.locator('.bet-row')).toHaveCount(4);
@@ -218,4 +245,16 @@ test('budget arrow keys stay inside the 100-yen unit bounds', async ({ page }) =
   await expect(budget).not.toHaveAttribute('aria-valuenow');
   await budget.press('ArrowUp');
   await expect(budget).toHaveValue('1.5');
+});
+
+test('budget stepper repeats while held without an extra increment on release', async ({ page }) => {
+  const budget = page.getByRole('spinbutton', { name: '購入予算', exact: true });
+  const increase = page.getByRole('button', { name: '購入予算を増やす' });
+  const bounds = await increase.boundingBox();
+  expect(bounds.width).toBeGreaterThanOrEqual(40);
+  await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(750);
+  await page.mouse.up();
+  await expect.poll(async () => Number(await budget.inputValue())).toBeGreaterThan(101);
 });
